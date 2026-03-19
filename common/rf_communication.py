@@ -1,9 +1,7 @@
-# TODO: find a way to make transmission more reliable with more checksums
-# did i cook or what.
-
 from rpi_rf import RFDevice
 import time
 
+# gpio pin connections
 TX_GPIO = 17
 RX_GPIO = 27
 
@@ -11,19 +9,23 @@ END_MARKER = 999999
 
 PULSE = 350
 REPEAT = 15
-
-# encodes a string of text into a list of 6 digits, with each element being a char
+ 
 def encode(text: str) -> list[int]:
-    
-    # ENCODING PROCEDURE
-    # digits 1-3 are for index (max 999, start at 1)
-    # digits 4-6 are for ascii value (032-126)
+    """
+    Encodes a string of text into a list of 7 digits, with each element being a char + checksum
+
+    ENCODING PROCEDURE:
+        digits 1-3 are for index (max 999, start at 1)
+        digits 4-6 are for ascii value (032-126)
+        digit 7 is checksum (sum of index and ascii % 10)
+    """
 
     codes = []
     for i, char in enumerate(text, start = 1):
         index_part = i
         ascii_part = ord(char)
-        code = (index_part * 1000) + ascii_part
+        checksum = (index_part + ascii_part) % 10
+        code = (index_part * 10000) + (ascii_part * 10) + checksum
         codes.append(code)
     return codes
 
@@ -33,9 +35,14 @@ def decode (code: int):
     if code <= 0 or code >= END_MARKER:
         return None, None
     
-    index = code // 1000
-    ascii_val = code % 1000
-
+    index = code // 10000
+    ascii_val = (code // 10) % 1000
+    checksum = code % 10
+    
+    # checksum
+    if (index + ascii_val) % 10 != checksum:
+        return None, None
+    
     if not (32 <= ascii_val <= 126):
         return None, None
     
@@ -90,7 +97,7 @@ def recieve_string(gpio = RX_GPIO) -> str:
                 print(f"    [{index}] '{char}' (code {code})")
     finally:
         rf.cleanup()
-        
+
     text = "".join(received[i] for i in sorted(received))
 
     print(f"\nDecrypted message: '{text}'")
