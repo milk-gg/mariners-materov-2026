@@ -1,15 +1,16 @@
-# code via: https://bluerobotics.com/learn/bar-sensors-guide/#code-examples
-
-import ms5837
 import time
 
-sensor = ms5837.MS5837_30BA()  # Change to MS5837_02BA if using Bar02
+import ms5837
+
+from common.rf_communication import recieve_string, send_string
+
+sensor = ms5837.MS5837_02BA()
 
 if not sensor.init():
     print("Sensor could not be initialized")
     exit(1)
 
-while True:
+def main():
     if sensor.read():
         print(("P: %0.1f mbar  %0.3f psi\tT: %0.2f C  %0.2f F") % (
             sensor.pressure(),
@@ -19,3 +20,6 @@ while True:
     else:
         print("Sensor read failed!")
         exit(1)
+
+if __name__ == "__main__":
+    main()
