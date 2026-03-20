@@ -1,5 +1,8 @@
-from rpi_rf import RFDevice
 import time
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../common'))
+
+from rpi_rf import RFDevice
+
 
 # gpio pin connections
 TX_GPIO = 17
@@ -17,7 +20,7 @@ def encode(text: str) -> list[int]:
     ENCODING PROCEDURE:
         digits 1-3 are for index (max 999, start at 1)
         digits 4-6 are for ascii value (032-126)
-        digit 7 is checksum (sum of index and ascii % 10)
+        digit 7 is for checksum (sum of index and ascii % 10)
     """
 
     codes = []
@@ -70,7 +73,7 @@ def send_string(text: str, gpio = TX_GPIO):
         rf.cleanup()
 
 # listen for an RF signal, continue listening until END_MARKER
-def recieve_string(gpio = RX_GPIO) -> str:
+def receive_string(gpio = RX_GPIO) -> str:
     rf = RFDevice(gpio)
     rf.enable_rx()
     received = {}
