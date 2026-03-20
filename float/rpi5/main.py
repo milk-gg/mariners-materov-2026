@@ -1,8 +1,10 @@
-import time
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../common'))
+import time, sys, os
+
+common_path = os.path.join(os.path.dirname(__file__), '../../common')
+sys.path.insert(0, common_path)
 
 import ms5837
+
 from rf_communication import receive_string, send_string
 
 sensor = ms5837.MS5837_02BA()
@@ -57,8 +59,8 @@ def main():
     start_time = time.time()  # Record when measuring starts
     
     while True:
-        packet_string = create_data_packet(company_number, start_time)
-        if packet_string:
+        if sensor.read():
+            packet_string = create_data_packet(company_number, start_time)
             send_string(packet_string)  # Send via RF
             print(f"Sent packet: {packet_string}")
             

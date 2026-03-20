@@ -1,6 +1,8 @@
 import sys
 import time
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../common'))
+
+common_path = os.path.join(os.path.dirname(__file__), '../../common')
+sys.path.insert(0, common_path)
 
 from rf_communication import send_string, receive_string
 

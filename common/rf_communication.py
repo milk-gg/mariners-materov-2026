@@ -1,8 +1,9 @@
-import time
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../common'))
+import time, sys, os
+
+rpi_rf_path = os.path.join(os.path.dirname(__file__), 'rpi-rf', 'rpi_rf')
+sys.path.insert(0, rpi_rf_path)
 
 from rpi_rf import RFDevice
-
 
 # gpio pin connections
 TX_GPIO = 17
@@ -10,7 +11,9 @@ RX_GPIO = 27
 
 END_MARKER = 999999
 
+PROTOCOL = 1
 PULSE = 350
+LENGTH = 24
 REPEAT = 15
  
 def encode(text: str) -> list[int]:
@@ -59,14 +62,14 @@ def send_string(text: str, gpio = TX_GPIO):
 
     try:
         codes = encode(text)
-        print(f"Sending: '{text}'  {len(code)} codes")
+        print(f"Sending: '{text}'  {len(codes)} codes")
         for code in codes:
-            rf.tx_code(code, tx_pulselength = PULSE, tx_repeat = REPEAT)
+            rf.tx_code(code, PROTOCOL, PULSE, LENGTH)
             time.sleep(.15)
 
         # send END_MARKER two times to ensure end
         for _ in range(2):
-            rf.tx_code(END_MARKER, tx_pulselength = PULSE, tx_repeat = REPEAT)
+            rf.tx_code(END_MARKER, PROTOCOL, PULSE, LENGTH)
             time.sleep(.15)
         print("Done sending")
     finally:
