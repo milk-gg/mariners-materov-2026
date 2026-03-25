@@ -12,9 +12,9 @@ RX_GPIO = 27
 END_MARKER = 999999
 
 PROTOCOL = 1
-PULSE = 350
+PULSE = 0
+REPEAT = 10
 LENGTH = 24
-REPEAT = 15
  
 def encode(text: str) -> list[int]:
     """
@@ -44,7 +44,7 @@ def decode (code: int):
     index = code // 10000
     ascii_val = (code // 10) % 1000
     checksum = code % 10
-    
+
     # checksum
     if (index + ascii_val) % 10 != checksum:
         return None, None
@@ -60,51 +60,74 @@ def send_string(text: str, gpio = TX_GPIO):
     rf = RFDevice(gpio)
     rf.enable_tx()
 
-    try:
-        codes = encode(text)
-        print(f"Sending: '{text}'  {len(codes)} codes")
-        for code in codes:
-            rf.tx_code(code, PROTOCOL, PULSE, LENGTH)
-            time.sleep(.15)
+    codes = encode(text)
+    print(f"Sending: '{text}'  {len(codes)} codes")
+    for code in codes:
+        rf.tx_code(code, PROTOCOL, PULSE, LENGTH)
+        time.sleep(.15)
 
-        # send END_MARKER two times to ensure end
-        for _ in range(2):
-            rf.tx_code(END_MARKER, PROTOCOL, PULSE, LENGTH)
-            time.sleep(.15)
-        print("Done sending")
-    finally:
-        rf.cleanup()
+    # send END_MARKER two times to ensure end
+    for _ in range(2):
+        rf.tx_code(END_MARKER, PROTOCOL, PULSE, LENGTH)
+        time.sleep(.15)
+    print("Done sending")
+
+    rf.cleanup()
 
 # listen for an RF signal, continue listening until END_MARKER
-def receive_string(gpio = RX_GPIO) -> str:
-    rf = RFDevice(gpio)
-    rf.enable_rx()
+def receive_string(gpio = RX_GPIO, timeout_seconds: float = 60.0) -> str:
+
+    try:
+        rf = RFDevice(gpio)
+        rf.enable_rx()
+    except Exception as e:
+        print(f"Failed to initialize RF device: {e}")
+        return ""
+
     received = {}
-    last_ts = None
+    last_code = None
+    deadline = time.time() + timeout_seconds
+    zero_count = 0
 
     print("Listening for message...")
 
-    try:
-        while True:
-            ts = rf.rx_code_timestamp
-            if ts == last_ts:
-                time.sleep(0.01)
-                continue
+    while True:
+        if time.time() > deadline:
+            print(f"Timeout reached ({timeout_seconds}s), zero codes: {zero_count}")
+            break
 
-            last_ts = ts
-            code = rf.rx_code
+        code = rf.rx_code
 
-            if code == END_MARKER:
-                break
+        if code == 0:
+            zero_count += 1
+            time.sleep(0.01)
+            continue
 
-            char, index = decode(code)
-            if char is not None and index not in received:
+        if code == last_code:
+            time.sleep(0.01)
+            continue
+
+        last_code = code
+
+        print(f"Received code: {code}")
+
+        if code == END_MARKER:
+            break
+
+        char, index = decode(code)
+        if char is not None:
+            if index not in received:
                 received[index] = char
                 print(f"    [{index}] '{char}' (code {code})")
-    finally:
+            else:
+                print(f"    Duplicate index {index} ignored (code {code})")
+        else:
+            print(f"    Invalid code ignored: {code}")
         rf.cleanup()
 
     text = "".join(received[i] for i in sorted(received))
 
     print(f"\nDecrypted message: '{text}'")
     return text
+
+recieve_string = receive_string
