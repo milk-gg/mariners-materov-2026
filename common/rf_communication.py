@@ -23,7 +23,7 @@ def encode(text: str) -> list[int]:
     ENCODING PROCEDURE:
         digits 1-3 are for index (max 999, start at 1)
         digits 4-6 are for ascii value (032-126)
-        digit 7 is for checksum (sum of index and ascii % 10)
+        digit 7 is a checksum (sum of index and ascii % 10)
     """
 
     codes = []
@@ -87,47 +87,42 @@ def receive_string(gpio = RX_GPIO, timeout_seconds: float = 60.0) -> str:
     except Exception as e:
         print(f"Failed to initialize RF device: {e}")
         return ""
-
+    
     received = {}
-    last_code = None
-    deadline = time.time() + timeout_seconds
-    zero_count = 0
-
-    print("Listening for message...")
-
+    start_time = time.time()
+    end_marker_count = 0
+    
     try:
+        print(f"Listening for RF signal (timeout: {timeout_seconds}s)...")
         while True:
-            if time.time() > deadline:
-                print(f"Timeout reached ({timeout_seconds}s), zero codes: {zero_count}")
+            # Check for timeout
+            if time.time() - start_time > timeout_seconds:
+                print("Timeout reached, stopping listener")
                 break
 
-            code = rf.rx_code
+            # Check for received code
+            if rf.rx_code_timestamp:
+                code = rf.rx_code_timestamp["code"]
 
-            if code == 0:
-                zero_count += 1
-                time.sleep(0.01)
-                continue
-
-            if code == last_code:
-                time.sleep(0.01)
-                continue
-
-            last_code = code
-
-            print(f"Received code: {code}")
-
-            if code == END_MARKER:
-                break
-
-            char, index = decode(code)
-            if char is not None:
-                if index not in received:
-                    received[index] = char
-                    print(f"    [{index}] '{char}' (code {code})")
+                # Check for end marker
+                if code == END_MARKER:
+                    end_marker_count += 1
+                    print("End marker received")
+                    if end_marker_count >= 2:
+                        break
                 else:
-                    print(f"    Duplicate index {index} ignored (code {code})")
-            else:
-                print(f"    Invalid code ignored: {code}")
+                    # Decode the code
+                    char, index = decode(code)
+                    if char is not None:
+                        received[index] = char
+                        print(f"Received: '{char}' (index {index})")
+                    else:
+                        print(f"Failed to decode code: {code}")
+
+                # Reset timestamp so we don't process the same code twice
+                rf.rx_code_timestamp = None
+
+            time.sleep(0.01)
 
     finally:
         rf.cleanup()
@@ -137,4 +132,5 @@ def receive_string(gpio = RX_GPIO, timeout_seconds: float = 60.0) -> str:
     print(f"\nDecrypted message: '{text}'")
     return text
 
-recieve_string = receive_string
+if __name__ == "__main__":
+    receive_string()
